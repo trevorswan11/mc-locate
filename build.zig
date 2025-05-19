@@ -3,7 +3,7 @@ const std = @import("std");
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{
-        .preferred_optimize_mode = .ReleaseSafe,
+        .preferred_optimize_mode = .ReleaseFast,
     });
     const exe = b.addExecutable(.{
         .name = "mclocate",
@@ -24,6 +24,7 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
 
     addRunStep(b, exe);
+    addFmtStep(b);
     b.installArtifact(exe);
 }
 
@@ -37,6 +38,15 @@ fn addRunStep(b: *std.Build, exe: *std.Build.Step.Compile) void {
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
+}
+
+fn addFmtStep(b: *std.Build) void {
+    const lint = b.addSystemCommand(&[_][]const u8{
+        "zig", "fmt", "src/",
+    });
+
+    const step = b.step("lint", "Check formatting of Zig source files");
+    step.dependOn(&lint.step);
 }
 
 fn getCSourceFiles(allocator: std.mem.Allocator, directory: []const u8) !std.ArrayList([]const u8) {

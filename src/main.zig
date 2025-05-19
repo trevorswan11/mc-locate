@@ -1,37 +1,31 @@
 const std = @import("std");
-const c = @cImport({
-    @cInclude("generator.h");
-    @cInclude("stdio.h");
-    @cInclude("inttypes.h");
-});
-const b = @import("biomes.zig");
+
+const parser = @import("parser.zig");
+const finder = @import("finder.zig");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    const stdout = std.io.getStdOut().writer();
-    var biomes = try b.getBiomeMap(allocator);
-    defer biomes.deinit();
+    const args = parser.parseArgs(allocator) catch |err| switch (err) {
+        error.InvalidBiome => {
+            std.debug.print("Biome could not be found in the given dimension\n", .{});
+            return;
+        },
+        else => {
+            std.debug.print("Usage: mclocate <seed> <dim> <biome> <x> <z>\n", .{});
+            return;
+        },
+    };
 
-    // Set up a biome generator for Minecraft 1.18
-    var g: c.Generator = undefined;
-    _ = c.setupGenerator(&g, c.MC_1_21, 0);
+    const query = finder.Query{
+        .seed = args.seed,
+        .dim = args.dim,
+        .biome_id = args.biome,
+        .x = args.center_x,
+        .z = args.center_z,
+    };
 
-    var seed: u64 = 0;
-    const scale: c_int = 1; // block coordinates
-    const x: c_int = 0;
-    const y: c_int = 63;
-    const z: c_int = 0;
-
-    while (true) : (seed += 1) {
-        _ = c.applySeed(&g, c.DIM_OVERWORLD, seed);
-
-        const biomeID = c.getBiomeAt(&g, scale, x, y, z);
-        if (biomeID == @intFromEnum(biomes.get("mushroom_fields").?)) {
-            try stdout.print(
-                "Seed {d} has a Mushroom Fields biome at block position ({d}, {d}).\n",
-                .{ seed, x, z }
-            );
-            break;
-        }
+    const result = try finder.find(allocator, query);
+    if (result) |r| {
+        std.debug.print("Found biome at {d}, {d}", .{ r.x, r.z });
     }
 }

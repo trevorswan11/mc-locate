@@ -1,5 +1,11 @@
 const std = @import("std");
 
+pub const Dimensions = enum(i4) {
+    nether = -1,
+    overworld = 0,
+    end = 1,
+};
+
 pub const BiomeID = enum(i16) {
     none = -1,
     ocean = 0,
@@ -101,7 +107,7 @@ pub const BiomeID = enum(i16) {
     pale_garden = 186,
 };
 
-pub fn getBiomeMap(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
+pub fn getOverworldBiomes(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
     var map = std.StringHashMap(BiomeID).init(allocator);
 
     try map.put("none", .none);
@@ -115,85 +121,59 @@ pub fn getBiomeMap(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
     try map.put("swamp", .swamp);
     try map.put("swampland", .swamp);
     try map.put("river", .river);
-    try map.put("nether_wastes", .nether_wastes);
-    try map.put("hell", .nether_wastes);
-    try map.put("the_end", .the_end);
-    try map.put("sky", .the_end);
     try map.put("frozen_ocean", .frozen_ocean);
-    try map.put("frozenOcean", .frozen_ocean);
     try map.put("frozen_river", .frozen_river);
-    try map.put("frozenRiver", .frozen_river);
     try map.put("snowy_tundra", .snowy_tundra);
-    try map.put("icePlains", .snowy_tundra);
+    try map.put("ice_plains", .snowy_tundra);
     try map.put("snowy_mountains", .snowy_mountains);
-    try map.put("iceMountains", .snowy_mountains);
+    try map.put("ice_mountains", .snowy_mountains);
     try map.put("mushroom_fields", .mushroom_fields);
-    try map.put("mushroomIsland", .mushroom_fields);
+    try map.put("mushroom_island", .mushroom_fields);
     try map.put("mushroom_field_shore", .mushroom_field_shore);
-    try map.put("mushroomIslandShore", .mushroom_field_shore);
+    try map.put("mushroom_island_shore", .mushroom_field_shore);
     try map.put("beach", .beach);
     try map.put("desert_hills", .desert_hills);
-    try map.put("desertHills", .desert_hills);
     try map.put("wooded_hills", .wooded_hills);
-    try map.put("forestHills", .wooded_hills);
+    try map.put("forest_hills", .wooded_hills);
     try map.put("taiga_hills", .taiga_hills);
-    try map.put("taigaHills", .taiga_hills);
     try map.put("mountain_edge", .mountain_edge);
-    try map.put("extremeHillsEdge", .mountain_edge);
+    try map.put("extreme_hills_edge", .mountain_edge);
     try map.put("jungle", .jungle);
     try map.put("jungle_hills", .jungle_hills);
-    try map.put("jungleHills", .jungle_hills);
     try map.put("jungle_edge", .jungle_edge);
-    try map.put("jungleEdge", .jungle_edge);
     try map.put("deep_ocean", .deep_ocean);
-    try map.put("deepOcean", .deep_ocean);
     try map.put("stone_shore", .stone_shore);
-    try map.put("stoneBeach", .stone_shore);
+    try map.put("stone_beach", .stone_shore);
     try map.put("snowy_beach", .snowy_beach);
     try map.put("coldBeach", .snowy_beach);
     try map.put("birch_forest", .birch_forest);
-    try map.put("birchForest", .birch_forest);
     try map.put("birch_forest_hills", .birch_forest_hills);
-    try map.put("birchForestHills", .birch_forest_hills);
     try map.put("dark_forest", .dark_forest);
-    try map.put("roofedForest", .dark_forest);
+    try map.put("roofed_forest", .dark_forest);
     try map.put("snowy_taiga", .snowy_taiga);
-    try map.put("coldTaiga", .snowy_taiga);
+    try map.put("cold_taiga", .snowy_taiga);
     try map.put("snowy_taiga_hills", .snowy_taiga_hills);
-    try map.put("coldTaigaHills", .snowy_taiga_hills);
+    try map.put("cold_taiga_hills", .snowy_taiga_hills);
     try map.put("giant_tree_taiga", .giant_tree_taiga);
-    try map.put("megaTaiga", .giant_tree_taiga);
+    try map.put("mega_taiga", .giant_tree_taiga);
     try map.put("giant_tree_taiga_hills", .giant_tree_taiga_hills);
-    try map.put("megaTaigaHills", .giant_tree_taiga_hills);
+    try map.put("mega_taiga_hills", .giant_tree_taiga_hills);
     try map.put("wooded_mountains", .wooded_mountains);
-    try map.put("extremeHillsPlus", .wooded_mountains);
+    try map.put("extreme_hills_plus", .wooded_mountains);
     try map.put("savanna", .savanna);
     try map.put("savanna_plateau", .savanna_plateau);
-    try map.put("savannaPlateau", .savanna_plateau);
     try map.put("badlands", .badlands);
     try map.put("mesa", .badlands);
     try map.put("wooded_badlands_plateau", .wooded_badlands_plateau);
-    try map.put("mesaPlateau_F", .wooded_badlands_plateau);
     try map.put("badlands_plateau", .badlands_plateau);
-    try map.put("mesaPlateau", .badlands_plateau);
-    try map.put("small_end_islands", .small_end_islands);
-    try map.put("end_midlands", .end_midlands);
-    try map.put("end_highlands", .end_highlands);
-    try map.put("end_barrens", .end_barrens);
+    try map.put("mesa_plateau", .badlands_plateau);
     try map.put("warm_ocean", .warm_ocean);
-    try map.put("warmOcean", .warm_ocean);
     try map.put("lukewarm_ocean", .lukewarm_ocean);
-    try map.put("lukewarmOcean", .lukewarm_ocean);
     try map.put("cold_ocean", .cold_ocean);
-    try map.put("coldOcean", .cold_ocean);
     try map.put("deep_warm_ocean", .deep_warm_ocean);
-    try map.put("warmDeepOcean", .deep_warm_ocean);
     try map.put("deep_lukewarm_ocean", .deep_lukewarm_ocean);
-    try map.put("lukewarmDeepOcean", .deep_lukewarm_ocean);
     try map.put("deep_cold_ocean", .deep_cold_ocean);
-    try map.put("coldDeepOcean", .deep_cold_ocean);
     try map.put("deep_frozen_ocean", .deep_frozen_ocean);
-    try map.put("frozenDeepOcean", .deep_frozen_ocean);
     try map.put("seasonal_forest", .seasonal_forest);
     try map.put("rainforest", .rainforest);
     try map.put("shrubland", .shrubland);
@@ -221,10 +201,6 @@ pub fn getBiomeMap(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
     try map.put("modified_badlands_plateau", .modified_badlands_plateau);
     try map.put("bamboo_jungle", .bamboo_jungle);
     try map.put("bamboo_jungle_hills", .bamboo_jungle_hills);
-    try map.put("soul_sand_valley", .soul_sand_valley);
-    try map.put("crimson_forest", .crimson_forest);
-    try map.put("warped_forest", .warped_forest);
-    try map.put("basalt_deltas", .basalt_deltas);
     try map.put("dripstone_caves", .dripstone_caves);
     try map.put("lush_caves", .lush_caves);
     try map.put("meadow", .meadow);
@@ -248,6 +224,31 @@ pub fn getBiomeMap(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
     try map.put("mangrove_swamp", .mangrove_swamp);
     try map.put("cherry_grove", .cherry_grove);
     try map.put("pale_garden", .pale_garden);
+
+    return map;
+}
+
+pub fn getNetherBiomes(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
+    var map = std.StringHashMap(BiomeID).init(allocator);
+
+    try map.put("nether_wastes", .nether_wastes);
+    try map.put("soul_sand_valley", .soul_sand_valley);
+    try map.put("crimson_forest", .crimson_forest);
+    try map.put("warped_forest", .warped_forest);
+    try map.put("basalt_deltas", .basalt_deltas);
+
+    return map;
+}
+
+pub fn getEndBiomes(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
+    var map = std.StringHashMap(BiomeID).init(allocator);
+
+    try map.put("the_end", .the_end);
+    try map.put("sky", .the_end);
+    try map.put("small_end_islands", .small_end_islands);
+    try map.put("end_midlands", .end_midlands);
+    try map.put("end_highlands", .end_highlands);
+    try map.put("end_barrens", .end_barrens);
 
     return map;
 }
