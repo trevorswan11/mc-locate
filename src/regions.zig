@@ -110,7 +110,7 @@ pub const BiomeID = enum(i16) {
 pub fn getOverworldBiomes(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
     var map = std.StringHashMap(BiomeID).init(allocator);
 
-    try map.put("none", .none);
+    // try map.put("none", .none);
     try map.put("ocean", .ocean);
     try map.put("plains", .plains);
     try map.put("desert", .desert);

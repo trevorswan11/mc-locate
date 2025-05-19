@@ -9,8 +9,7 @@ pub fn main() !void {
     const args = parser.parseArgs(allocator) catch |err| switch (err) {
         error.HelpNeeded => {
             const help = try regions.helpMessage();
-            std.debug.print("{s}\n", .{help});
-            std.debug.print("Usage: mclocate <seed> <dim> <biome> <x> <z>\n", .{});
+            std.debug.print("{s}", .{help});
             return;
         },
         error.InvalidBiome => {
