@@ -4,13 +4,17 @@ const c = @cImport({
     @cInclude("stdio.h");
     @cInclude("inttypes.h");
 });
+const b = @import("biomes.zig");
 
 pub fn main() !void {
+    const allocator = std.heap.page_allocator;
     const stdout = std.io.getStdOut().writer();
+    var biomes = try b.getBiomeMap(allocator);
+    defer biomes.deinit();
 
     // Set up a biome generator for Minecraft 1.18
     var g: c.Generator = undefined;
-    _ = c.setupGenerator(&g, c.MC_1_18, 0);
+    _ = c.setupGenerator(&g, c.MC_1_21, 0);
 
     var seed: u64 = 0;
     const scale: c_int = 1; // block coordinates
@@ -22,7 +26,7 @@ pub fn main() !void {
         _ = c.applySeed(&g, c.DIM_OVERWORLD, seed);
 
         const biomeID = c.getBiomeAt(&g, scale, x, y, z);
-        if (biomeID == c.mushroom_fields) {
+        if (biomeID == @intFromEnum(biomes.get("mushroom_fields").?)) {
             try stdout.print(
                 "Seed {d} has a Mushroom Fields biome at block position ({d}, {d}).\n",
                 .{ seed, x, z }
