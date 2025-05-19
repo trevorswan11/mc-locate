@@ -27,6 +27,26 @@
 *.lib
 
 # Executables
-*.exe
 *.out
 *.app
+
+# Zig build system
+zig-out/
+.zig-cache/
+
+# Build
+.vs/
+.vscode/
+**.sln
+**.vcxproj
+**.vcxproj.filters
+**.vcxproj.user
+**.csproj
+**.user
+Makefile
+
+# MISC
+bin/
+bin-int/
+tmp/
+build/
