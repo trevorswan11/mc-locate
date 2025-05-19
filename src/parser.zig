@@ -23,7 +23,18 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
 
     // Initialize and unpack the args -- Skip index 0 to avoid call
     const args = try std.process.argsAlloc(allocator);
-    if (args.len < 6) {
+
+    // Convert all of the args to their lowercase value
+    for (args) |a| {
+        for (a) |*c| {
+            c.* = std.ascii.toLower(c.*);
+        }
+    }
+
+    // Check if the user requested help or used the incorrect number of params
+    if (std.mem.eql(u8, args[1], "help")) {
+        return error.HelpNeeded;
+    } else if (args.len < 6) {
         return error.InvalidArgs;
     }
 
@@ -39,7 +50,7 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
         'e' => @intFromEnum(dims.end),
         else => null,
     };
-    
+
     // Convert the string name of the biome map to a BiomeID / c_int
     if (dim) |d| {
         if (d != -1 and d != 0 and d != 1) {

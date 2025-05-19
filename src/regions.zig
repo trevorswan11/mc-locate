@@ -177,7 +177,7 @@ pub fn getOverworldBiomes(allocator: std.mem.Allocator) !std.StringHashMap(Biome
     try map.put("seasonal_forest", .seasonal_forest);
     try map.put("rainforest", .rainforest);
     try map.put("shrubland", .shrubland);
-    try map.put("the_void", .the_void);
+    // try map.put("the_void", .the_void);
     try map.put("sunflower_plains", .sunflower_plains);
     try map.put("desert_lakes", .desert_lakes);
     try map.put("gravelly_mountains", .gravelly_mountains);
@@ -251,4 +251,53 @@ pub fn getEndBiomes(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
     try map.put("end_barrens", .end_barrens);
 
     return map;
+}
+
+pub fn helpMessage() ![]const u8 {
+    const allocator = std.heap.page_allocator;
+
+    var overworld = try getOverworldBiomes(allocator);
+    defer overworld.deinit();
+    var oveitr = overworld.keyIterator();
+
+    var nether = try getNetherBiomes(allocator);
+    defer nether.deinit();
+    var netitr = nether.keyIterator();
+
+    var end = try getEndBiomes(allocator);
+    defer end.deinit();
+    var enditr = end.keyIterator();
+
+    var result = std.ArrayList(u8).init(allocator);
+    defer result.deinit();
+
+    try result.appendSlice("**All Accepted Dimensions for 1.21.x:**\n");
+    try result.appendSlice("- The Nether: use <dim> = 'n'\n");
+    try result.appendSlice("- The Overworld: use <dim> = 'o'\n");
+    try result.appendSlice("- The End: use <dim> = 'e'\n\n");
+
+    try result.appendSlice("**All Accepted Biomes for 1.21.x:**\n");
+    try result.appendSlice("__The Overworld__\n");
+
+    while (oveitr.next()) |key| {
+        try result.appendSlice("- ");
+        try result.appendSlice(key.*);
+        try result.appendSlice("\n");
+    }
+
+    try result.appendSlice("\n__The Nether__\n");
+    while (netitr.next()) |key| {
+        try result.appendSlice("- ");
+        try result.appendSlice(key.*);
+        try result.appendSlice("\n");
+    }
+
+    try result.appendSlice("\n__The End__\n");
+    while (enditr.next()) |key| {
+        try result.appendSlice("- ");
+        try result.appendSlice(key.*);
+        try result.appendSlice("\n");
+    }
+
+    return try result.toOwnedSlice();
 }
