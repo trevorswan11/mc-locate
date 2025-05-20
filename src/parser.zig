@@ -3,11 +3,13 @@ const std = @import("std");
 const regions = @import("regions.zig");
 const dims = regions.Dimensions;
 
+// Cubiomes supports both biome and structure searching 
 pub const SearchType = enum(u8) {
     BIOME,
     STRUCTURE,
 };
 
+// A wrapper for the useful command line args
 pub const Args = struct {
     seed: u64,
     dim: c_int,
