@@ -4,10 +4,8 @@ const c = @cImport({
     @cInclude("finders.h");
 });
 
+const globals = @import("globals.zig");
 const structures = @import("regions.zig").StructureID;
-
-// I have found success with 4 threads, but more or less should work in theory
-const NUM_THREADS = 4;
 
 // Search specific information
 pub const Query = struct {
@@ -16,7 +14,8 @@ pub const Query = struct {
     structure_id: c_int,
     x: c_int,
     z: c_int,
-    radius: c_int = 1000,
+    radius: c_int = globals.SEARCH_RADIUS,
+    count: bool,
 };
 
 // Packs a successful search for the user
@@ -35,14 +34,15 @@ const ThreadContext = struct {
     best_mutex: *std.Thread.Mutex,
     best_pos: *?c.Pos,
     best_dist_sq: *u64,
+    count: u64 = 0,
 };
 
 /// Defines the work to be done per thread to find the specific structure id
-fn threadWorker(ctx: *ThreadContext) void {
+fn worker(ctx: *ThreadContext, sconf: c.StructureConfig, counting: bool) void {
     var g: c.Generator = undefined;
     var rand: u64 = undefined;
     c.setSeed(&rand, ctx.query.seed);
-    c.setupGenerator(&g, c.MC_1_21, 0);
+    c.setupGenerator(&g, globals.MC_VER, 0);
     c.applySeed(&g, ctx.query.dim, ctx.query.seed);
 
     // Follows the guide of test.c in cubiomes
@@ -57,7 +57,10 @@ fn threadWorker(ctx: *ThreadContext) void {
     while (rx <= ctx.end_rx) : (rx += 1) {
         var rz = min_z;
         while (rz <= max_z) : (rz += 1) {
-            if (checkRegion(rx, rz, ctx.query, &g) catch null) |pos| {
+            if (counting) {
+                ctx.count += 1;
+            }
+            if (checkRegion(rx, rz, ctx.query, &g, sconf) catch null) |pos| {
                 const dist_sq = distanceSquared(pos, ctx.query);
                 if (dist_sq < local_best_dist_sq) {
                     local_best_dist_sq = dist_sq;
@@ -85,8 +88,11 @@ pub fn find(query: Query) !?Result {
         return findNearestStronghold(query.seed, query.x, query.z);
     }
 
-    const region_shift = getStructureRegionShift(query.structure_id);
-    const shift_val = std.math.shl(i32, 1, region_shift);
+    var sconf: c.StructureConfig = undefined;
+    if (c.getStructureConfig(query.structure_id, globals.MC_VER, &sconf) != 1) {
+        return null;
+    }
+    const shift_val: i32 = @as(i32, @intCast(sconf.regionSize)) * 16;
 
     const center_rx = @divFloor(query.x, shift_val);
     const center_rz = @divFloor(query.z, shift_val);
@@ -97,12 +103,13 @@ pub fn find(query: Query) !?Result {
     var best_dist_sq: u64 = std.math.maxInt(u64);
 
     const total_width = max_r * 2 + 1;
-    const step = @divFloor(total_width + NUM_THREADS - 1, NUM_THREADS);
-    var threads: [NUM_THREADS]std.Thread = undefined;
+    const step = @divFloor(total_width + globals.NUM_THREADS - 1, globals.NUM_THREADS);
+    var threads: [globals.NUM_THREADS]std.Thread = undefined;
+    var thread_ctx: [globals.NUM_THREADS]*ThreadContext = undefined;
 
     // Kick off each thread by calculating the radius range and initializing its context
     var i: usize = 0;
-    while (i < NUM_THREADS) : (i += 1) {
+    while (i < globals.NUM_THREADS) : (i += 1) {
         const start_rx = center_rx - max_r + @as(i32, @intCast(i)) * @as(i32, @intCast(step));
         const end_rx = @min(center_rx - max_r + (@as(i32, @intCast((i))) + 1) * @as(i32, @intCast(step)) - 1, center_rx + max_r);
 
@@ -118,14 +125,28 @@ pub fn find(query: Query) !?Result {
             .best_dist_sq = &best_dist_sq,
         };
 
-        threads[i] = try std.Thread.spawn(.{}, threadWorker, .{ctx});
+        threads[i] = try std.Thread.spawn(.{}, worker, .{ ctx, sconf, query.count });
+        thread_ctx[i] = ctx;
     }
 
     for (threads) |t| {
         t.join();
     }
 
-    return if (best_pos) |pos| Result{ .x = pos.x, .z = pos.z } else null;
+    // Print count info if requested
+    if (query.count) {
+        var total: u64 = 0;
+        inline for (thread_ctx, 1..) |tx, j| {
+            total += tx.count;
+            std.debug.print("Thread {d}: {d} checks\n", .{ j, tx.count });
+        }
+        std.debug.print("Total checks: {d}\n", .{total});
+    }
+
+    return if (best_pos) |pos| Result{
+        .x = pos.x,
+        .z = pos.z,
+    } else null;
 }
 
 /// Uses a custom, single threaded approach for finding strongholds as they are uniquely generated
@@ -135,11 +156,11 @@ fn findNearestStronghold(
     z: c_int,
 ) !?Result {
     var g: c.Generator = undefined;
-    c.setupGenerator(&g, c.MC_1_21, 0);
+    c.setupGenerator(&g, globals.MC_VER, 0);
     c.applySeed(&g, c.DIM_OVERWORLD, seed);
 
     var sh_iter: c.StrongholdIter = undefined;
-    _ = c.initFirstStronghold(&sh_iter, c.MC_1_21, seed);
+    _ = c.initFirstStronghold(&sh_iter, globals.MC_VER, seed);
 
     var best_pos: ?c.Pos = null;
     var best_dist_sq: u64 = std.math.maxInt(u64);
@@ -162,43 +183,28 @@ fn findNearestStronghold(
         if (more <= 0) break;
     }
 
-    if (best_pos) |p| {
-        return Result{ .x = p.x, .z = p.z, };
-    } else {
-        return null;
-    }
-}
-
-/// Helps distinguish structures that generate in such a way that require different bit shifts
-fn getStructureRegionShift(id: c_int) u5 {
-    return switch (id) {
-        c.Village => 5,
-        c.Bastion => 4,
-        c.Monument => 6,
-        c.Igloo => 4,
-        c.Mansion => 6,
-        c.Ruined_Portal => 4,
-        c.Ruined_Portal_N => 4,
-        c.Outpost => 5,
-        c.Desert_Well => 4,
-        c.Geode => 3,
-        else => 9,
-    };
+    return if (best_pos) |p| Result{
+        .x = p.x,
+        .z = p.z,
+    } else null;
 }
 
 /// Follows the comments in test.c regarding valid structure generation
-fn checkRegion(x: i32, z: i32, query: Query, g: *c.Generator) !?c.Pos {
+fn checkRegion(region_x: i32, region_z: i32, query: Query, g: *c.Generator, sconf: c.StructureConfig) !?c.Pos {
     var pos: c.Pos = undefined;
-    const found = c.getStructurePos(query.structure_id, c.MC_1_21, query.seed, x, z, &pos) == 1;
+    const found = c.getStructurePos(query.structure_id, globals.MC_VER, query.seed, region_x, region_z, &pos) == 1;
     if (!found) return null;
 
-    var is_valid = c.isViableStructurePos(query.structure_id, g, x, z, 0) == 1;
-    is_valid = is_valid and (c.isViableStructureTerrain(query.structure_id, g, x, z) == 1);
+    const block_x = region_x * sconf.regionSize * 16;
+    const block_z = region_z * sconf.regionSize * 16;
+
+    var is_valid = c.isViableStructurePos(query.structure_id, g, block_x, block_z, 0) == 1;
+    is_valid = is_valid and (c.isViableStructureTerrain(query.structure_id, g, block_x, block_z) == 1);
 
     if (query.structure_id == c.End_City) {
         var sn: c.SurfaceNoise = undefined;
         c.initSurfaceNoise(&sn, c.DIM_END, query.seed);
-        is_valid = is_valid and (c.isViableEndCityTerrain(g, &sn, x, z) == 1);
+        is_valid = is_valid and (c.isViableEndCityTerrain(g, &sn, block_x, block_z) == 1);
     }
 
     return if (is_valid) pos else null;
@@ -208,21 +214,4 @@ fn distanceSquared(pos: c.Pos, query: Query) u64 {
     const dx = @as(i64, pos.x) - @as(i64, query.x);
     const dz = @as(i64, pos.z) - @as(i64, query.z);
     return @as(u64, @intCast(dx * dx + dz * dz));
-}
-
-fn tryRegionUpdateNearest(
-    x: i32,
-    z: i32,
-    query: Query,
-    g: *c.Generator,
-    best_dist_sq: *u64,
-    nearest: *?c.Pos,
-) void {
-    if (checkRegion(x, z, query, g) catch null) |pos| {
-        const dist_sq = distanceSquared(pos, query);
-        if (dist_sq < best_dist_sq.*) {
-            best_dist_sq.* = dist_sq;
-            nearest.* = pos;
-        }
-    }
 }

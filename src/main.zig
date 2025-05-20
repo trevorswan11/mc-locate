@@ -46,6 +46,7 @@ pub fn main() !void {
                 .biome_id = args.biome,
                 .x = args.center_x,
                 .z = args.center_z,
+                .count = args.count,
             };
 
             const result = try biome.find(allocator, query);
@@ -62,6 +63,7 @@ pub fn main() !void {
                 .structure_id = args.structure,
                 .x = args.center_x,
                 .z = args.center_z,
+                .count = args.count,
             };
 
             const result = try structure.find(query);

@@ -4,8 +4,9 @@ const c = @cImport({
     @cInclude("finders.h");
 });
 
-// Check every 8 blocks (half of a chunk) on 4 threads
-pub const NUM_THREADS = 4; // Most stable with 4 threads, but works with 6 usually
+const globals = @import("globals.zig");
+
+// Check every 8 blocks (half of a chunk)
 pub const STEP = 8;
 
 // Search specific information
@@ -15,7 +16,8 @@ pub const Query = struct {
     biome_id: c_int,
     x: c_int,
     z: c_int,
-    radius: c_int = 10000,
+    radius: c_int = globals.SEARCH_RADIUS,
+    count: bool,
 };
 
 // Packs a successful search for the user
@@ -61,14 +63,15 @@ const ThreadContext = struct {
     min_z: c_int,
     max_z: c_int,
     shared: *SharedResult,
+    count: u64 = 0,
 };
 
 /// Defines the work to be done per thread to find the specific biome id
-fn workerThread(ctx: *ThreadContext) void {
+fn worker(ctx: *ThreadContext, counting: bool) void {
     var g: c.Generator = undefined;
     var rand: u64 = undefined;
     c.setSeed(&rand, ctx.seed);
-    c.setupGenerator(&g, c.MC_1_21, 0);
+    c.setupGenerator(&g, globals.MC_VER, 0);
     c.applySeed(&g, ctx.dim, ctx.seed);
 
     // Search the threads alloted region in the partition
@@ -84,6 +87,9 @@ fn workerThread(ctx: *ThreadContext) void {
 
             // Use cubiomes to poll the biome at the coordinate, use default y value as it does not matter
             const id = c.getBiomeAt(&g, 1, x, 60, z);
+            if (counting) {
+                ctx.count += 1;
+            }
             if (id == ctx.biome_id) {
                 // Lock the shared data temporarily to prevent race conditions
                 ctx.shared.mutex.lock();
@@ -100,12 +106,12 @@ fn workerThread(ctx: *ThreadContext) void {
 /// Attempts to locate a biome in the given square radius about a center coordinate
 pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
     var shared = SharedResult{};
-    var threads: [NUM_THREADS]std.Thread = undefined;
-    var thread_data: [NUM_THREADS]ThreadContext = undefined;
+    var threads: [globals.NUM_THREADS]std.Thread = undefined;
+    var thread_ctx: [globals.NUM_THREADS]ThreadContext = undefined;
 
     const boxes = try generatePartitions(
         allocator,
-        NUM_THREADS,
+        globals.NUM_THREADS,
         query.x,
         query.z,
         query.radius,
@@ -114,7 +120,7 @@ pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
 
     for (&threads, 0..) |*t, i| {
         const box = boxes[i];
-        thread_data[i] = ThreadContext{
+        thread_ctx[i] = ThreadContext{
             .seed = query.seed,
             .dim = query.dim,
             .biome_id = query.biome_id,
@@ -128,28 +134,34 @@ pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
         };
 
         // Prevents negative coordinate errors if the inputs were flipped
-        if (thread_data[i].min_x > thread_data[i].max_x) {
-            std.mem.swap(c_int, &thread_data[i].min_x, &thread_data[i].max_x);
+        if (thread_ctx[i].min_x > thread_ctx[i].max_x) {
+            std.mem.swap(c_int, &thread_ctx[i].min_x, &thread_ctx[i].max_x);
         }
-        if (thread_data[i].min_z > thread_data[i].max_z) {
-            std.mem.swap(c_int, &thread_data[i].min_z, &thread_data[i].max_z);
+        if (thread_ctx[i].min_z > thread_ctx[i].max_z) {
+            std.mem.swap(c_int, &thread_ctx[i].min_z, &thread_ctx[i].max_z);
         }
 
-        t.* = try std.Thread.spawn(.{}, workerThread, .{&thread_data[i]});
+        t.* = try std.Thread.spawn(.{}, worker, .{&thread_ctx[i], query.count});
     }
 
     for (&threads) |*t| {
         t.join();
     }
 
-    if (shared.result.found) {
-        return Result{
-            .x = shared.result.x,
-            .z = shared.result.z,
-        };
-    } else {
-        return null;
+    // Print count info if requested
+    if (query.count) {
+        var total: u64 = 0;
+        inline for (thread_ctx, 1..) |tx, j| {
+            total += tx.count;
+            std.debug.print("Thread {d}: {d} checks\n", .{ j, tx.count });
+        }
+        std.debug.print("Total checks: {d}\n", .{total});
     }
+
+    return if (shared.result.found) Result{
+        .x = shared.result.x,
+        .z = shared.result.z,
+    } else null;
 }
 
 pub fn generatePartitions(

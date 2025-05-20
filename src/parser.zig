@@ -3,7 +3,7 @@ const std = @import("std");
 const regions = @import("regions.zig");
 const dims = regions.Dimensions;
 
-// Cubiomes supports both biome and structure searching 
+// Cubiomes supports both biome and structure searching
 pub const SearchType = enum(u8) {
     BIOME,
     STRUCTURE,
@@ -19,6 +19,7 @@ pub const Args = struct {
     center_z: c_int,
     search: SearchType,
     benchmark: bool,
+    count: bool,
 };
 
 /// Parses the command line args according to:
@@ -33,6 +34,7 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
     var z: ?c_int = null;
     var search_type: ?SearchType = null;
     var bench = false;
+    var count = false;
 
     // Initialize and unpack the args -- Skip index 0 to avoid call
     const args = try std.process.argsAlloc(allocator);
@@ -141,6 +143,13 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
 
     if (std.mem.eql(u8, args[args.len - 1], "bench")) {
         bench = true;
+    } else if (std.mem.eql(u8, args[args.len - 1], "count")) {
+        count = true;
+    } else if (std.mem.eql(u8, args[args.len - 1], "cb") or
+        std.mem.eql(u8, args[args.len - 1], "bc"))
+    {
+        count = true;
+        bench = true;
     }
 
     // Repack the args in a useable format (all optional types must now have a value)
@@ -153,6 +162,7 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
             .center_z = z.?,
             .search = search_type.?,
             .benchmark = bench,
+            .count = count,
         },
         .STRUCTURE => Args{
             .seed = seed.?,
@@ -162,6 +172,7 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
             .center_z = z.?,
             .search = search_type.?,
             .benchmark = bench,
+            .count = count,
         },
     };
 }
