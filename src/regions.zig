@@ -6,6 +6,8 @@ pub const Dimensions = enum(i4) {
     end = 1,
 };
 
+// --- BIOMES ---
+
 pub const BiomeID = enum(i16) {
     none = -1,
     ocean = 0,
@@ -253,7 +255,7 @@ pub fn getEndBiomes(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
     return map;
 }
 
-pub fn helpMessage() ![]const u8 {
+pub fn biomeHelpMessage() ![]const u8 {
     const allocator = std.heap.page_allocator;
 
     var overworld = try getOverworldBiomes(allocator);
@@ -277,6 +279,131 @@ pub fn helpMessage() ![]const u8 {
     try result.appendSlice("- The End: use <dim> = 'e'\n\n");
 
     try result.appendSlice("**All Accepted Biomes for 1.21.x:**\n");
+    try result.appendSlice("__The Overworld__\n");
+
+    while (oveitr.next()) |key| {
+        try result.appendSlice("- ");
+        try result.appendSlice(key.*);
+        try result.appendSlice("\n");
+    }
+
+    try result.appendSlice("\n__The Nether__\n");
+    while (netitr.next()) |key| {
+        try result.appendSlice("- ");
+        try result.appendSlice(key.*);
+        try result.appendSlice("\n");
+    }
+
+    try result.appendSlice("\n__The End__\n");
+    while (enditr.next()) |key| {
+        try result.appendSlice("- ");
+        try result.appendSlice(key.*);
+        try result.appendSlice("\n");
+    }
+
+    return try result.toOwnedSlice();
+}
+
+// --- STRUCTURES ---
+
+pub const StructureID = enum(i16) {
+    desert_pyramid = 1,
+    jungle_temple,
+    swamp_hut,
+    igloo,
+    village,
+    ocean_ruin,
+    shipwreck,
+    monument,
+    mansion,
+    outpost,
+    ruined_portal,
+    ruined_portal_nether,
+    ancient_city,
+    treasure,
+    mineshaft,
+    desert_well,
+    geode,
+    fortress,
+    bastion,
+    end_city,
+    end_gateway,
+    end_island,
+    trail_ruins,
+    trial_chambers,
+    stronghold,
+};
+
+pub fn getOverworldStructures(allocator: std.mem.Allocator) !std.StringHashMap(StructureID) {
+    var map = std.StringHashMap(StructureID).init(allocator);
+
+    try map.put("desert_pyramid", .desert_pyramid);
+    try map.put("jungle_temple", .jungle_temple);
+    try map.put("swamp_hut", .swamp_hut);
+    try map.put("igloo", .igloo);
+    try map.put("village", .village);
+    try map.put("ocean_ruin", .ocean_ruin);
+    try map.put("shipwreck", .shipwreck);
+    try map.put("monument", .monument);
+    try map.put("mansion", .mansion);
+    try map.put("outpost", .outpost);
+    try map.put("ruined_portal", .ruined_portal);
+    try map.put("ancient_city", .ancient_city);
+    try map.put("treasure", .treasure);
+    try map.put("mineshaft", .mineshaft);
+    try map.put("desert_well", .desert_well);
+    try map.put("geode", .geode);
+    try map.put("trail_ruins", .trail_ruins);
+    try map.put("trial_chambers", .trial_chambers);
+    try map.put("stronghold", .stronghold);
+
+    return map;
+}
+
+pub fn getNetherStructures(allocator: std.mem.Allocator) !std.StringHashMap(StructureID) {
+    var map = std.StringHashMap(StructureID).init(allocator);
+
+    try map.put("ruined_portal_nether", .ruined_portal_nether);
+    try map.put("fortress", .fortress);
+    try map.put("bastion", .bastion);
+
+    return map;
+}
+
+pub fn getEndStructures(allocator: std.mem.Allocator) !std.StringHashMap(StructureID) {
+    var map = std.StringHashMap(StructureID).init(allocator);
+
+    try map.put("end_city", .end_city);
+    try map.put("end_gateway", .end_gateway);
+    try map.put("end_island", .end_island);
+
+    return map;
+}
+
+pub fn structureHelpMessage() ![]const u8 {
+    const allocator = std.heap.page_allocator;
+
+    var overworld = try getOverworldStructures(allocator);
+    defer overworld.deinit();
+    var oveitr = overworld.keyIterator();
+
+    var nether = try getNetherStructures(allocator);
+    defer nether.deinit();
+    var netitr = nether.keyIterator();
+
+    var end = try getEndStructures(allocator);
+    defer end.deinit();
+    var enditr = end.keyIterator();
+
+    var result = std.ArrayList(u8).init(allocator);
+    defer result.deinit();
+
+    try result.appendSlice("**All Accepted Dimensions for 1.21.x:**\n");
+    try result.appendSlice("- The Nether: use <dim> = 'n'\n");
+    try result.appendSlice("- The Overworld: use <dim> = 'o'\n");
+    try result.appendSlice("- The End: use <dim> = 'e'\n\n");
+
+    try result.appendSlice("**All Accepted Structures for 1.21.x:**\n");
     try result.appendSlice("__The Overworld__\n");
 
     while (oveitr.next()) |key| {

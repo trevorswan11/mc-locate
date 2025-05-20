@@ -4,21 +4,21 @@ const c = @cImport({
     @cInclude("finders.h");
 });
 
-const partition = @import("partition.zig");
-
 // Check every 8 blocks (half of a chunk) on 4 threads
 pub const NUM_THREADS = 4; // Most stable with 4 threads, but works with 6 usually
 pub const STEP = 8;
 
+// Search specific information
 pub const Query = struct {
     seed: u64,
-    dim: c_int = c.DIM_OVERWORLD,
+    dim: c_int,
     biome_id: c_int,
     x: c_int,
     z: c_int,
     radius: c_int = 10000,
 };
 
+// Packs a successful search for the user
 pub const Result = struct {
     x: c_int,
     z: c_int,
@@ -41,8 +41,16 @@ const SharedResult = struct {
     },
 };
 
+// Helper struct to define search regions
+const PartitionBox = struct {
+    min_x: i32,
+    max_x: i32,
+    min_z: i32,
+    max_z: i32,
+};
+
 // All information needed for a thread to search in its region for a biome
-const ThreadData = struct {
+const ThreadContext = struct {
     seed: u64,
     dim: c_int,
     biome_id: c_int,
@@ -56,33 +64,33 @@ const ThreadData = struct {
 };
 
 /// Defines the work to be done per thread to find the specific biome id
-fn workerThread(data: *ThreadData) void {
+fn workerThread(ctx: *ThreadContext) void {
     var g: c.Generator = undefined;
     var rand: u64 = undefined;
-    c.setSeed(&rand, data.seed);
+    c.setSeed(&rand, ctx.seed);
     c.setupGenerator(&g, c.MC_1_21, 0);
-    c.applySeed(&g, data.dim, data.seed);
+    c.applySeed(&g, ctx.dim, ctx.seed);
 
     // Search the threads alloted region in the partition
-    var z = data.min_z;
-    while (z <= data.max_z) : (z += STEP) {
-        var x = data.min_x;
-        while (x <= data.max_x) : (x += STEP) {
+    var z = ctx.min_z;
+    while (z <= ctx.max_z) : (z += STEP) {
+        var x = ctx.min_x;
+        while (x <= ctx.max_x) : (x += STEP) {
             // We can stop the threads work if another thread has found something
-            data.shared.mutex.lock();
-            const should_stop = data.shared.result.found;
-            data.shared.mutex.unlock();
+            ctx.shared.mutex.lock();
+            const should_stop = ctx.shared.result.found;
+            ctx.shared.mutex.unlock();
             if (should_stop) return;
 
             // Use cubiomes to poll the biome at the coordinate, use default y value as it does not matter
             const id = c.getBiomeAt(&g, 1, x, 60, z);
-            if (id == data.biome_id) {
+            if (id == ctx.biome_id) {
                 // Lock the shared data temporarily to prevent race conditions
-                data.shared.mutex.lock();
-                if (!data.shared.result.found) {
-                    data.shared.result = .{ .x = x, .z = z, .found = true };
+                ctx.shared.mutex.lock();
+                if (!ctx.shared.result.found) {
+                    ctx.shared.result = .{ .x = x, .z = z, .found = true };
                 }
-                data.shared.mutex.unlock();
+                ctx.shared.mutex.unlock();
                 return;
             }
         }
@@ -93,9 +101,9 @@ fn workerThread(data: *ThreadData) void {
 pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
     var shared = SharedResult{};
     var threads: [NUM_THREADS]std.Thread = undefined;
-    var thread_data: [NUM_THREADS]ThreadData = undefined;
+    var thread_data: [NUM_THREADS]ThreadContext = undefined;
 
-    const boxes = try partition.generatePartitions(
+    const boxes = try generatePartitions(
         allocator,
         NUM_THREADS,
         query.x,
@@ -106,7 +114,7 @@ pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
 
     for (&threads, 0..) |*t, i| {
         const box = boxes[i];
-        thread_data[i] = ThreadData{
+        thread_data[i] = ThreadContext{
             .seed = query.seed,
             .dim = query.dim,
             .biome_id = query.biome_id,
@@ -142,4 +150,44 @@ pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
     } else {
         return null;
     }
+}
+
+pub fn generatePartitions(
+    allocator: std.mem.Allocator,
+    num_threads: usize,
+    center_x: i32,
+    center_z: i32,
+    radius: i32,
+) ![]PartitionBox {
+    const boxes = try allocator.alloc(PartitionBox, num_threads);
+    var w: usize = std.math.sqrt(num_threads);
+    while (num_threads % w != 0) : (w -= 1) {}
+    const h = num_threads / w;
+
+    // generate tile dimensions for the threads
+    const tile_width: i32 = @divFloor((radius * 2 + (@as(i32, @intCast(w))) - 1), @as(i32, @intCast(w)));
+    const tile_height: i32 = @divFloor((radius * 2 + (@as(i32, @intCast(h))) - 1), @as(i32, @intCast(h)));
+
+    var i: usize = 0;
+    var row: usize = 0;
+    while (row < h) : (row += 1) {
+        var col: usize = 0;
+        while (col < w) : (col += 1) {
+            // Compute the coordinates of the box for the thread
+            const left = center_x - radius + tile_width * @as(i32, @intCast(col));
+            const right = @min(left + tile_width - 1, center_x + radius);
+            const top = center_z - radius + tile_height * @as(i32, @intCast(row));
+            const bottom = @min(top + tile_height - 1, center_z + radius);
+
+            boxes[i] = .{
+                .min_x = left,
+                .max_x = right,
+                .min_z = top,
+                .max_z = bottom,
+            };
+            i += 1;
+        }
+    }
+
+    return boxes;
 }
