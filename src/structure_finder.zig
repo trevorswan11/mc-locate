@@ -6,6 +6,9 @@ const c = @cImport({
 
 const structures = @import("regions.zig").StructureID;
 
+// I have found success with 4 threads, but more or less should work in theory
+const NUM_THREADS = 4;
+
 // Search specific information
 pub const Query = struct {
     seed: u64,
@@ -94,15 +97,13 @@ pub fn find(query: Query) !?Result {
     var best_pos: ?c.Pos = null;
     var best_dist_sq: u64 = std.math.maxInt(u64);
 
-    // I have found success with 4 threads, but more or less should work in theory
-    const num_threads = 4;
     const total_width = max_r * 2 + 1;
-    const step = @divFloor(total_width + num_threads - 1, num_threads);
-    var threads: [num_threads]std.Thread = undefined;
+    const step = @divFloor(total_width + NUM_THREADS - 1, NUM_THREADS);
+    var threads: [NUM_THREADS]std.Thread = undefined;
 
     // Kick off each thread by calculating the radius range and initializing its context
     var i: usize = 0;
-    while (i < num_threads) : (i += 1) {
+    while (i < NUM_THREADS) : (i += 1) {
         const start_rx = center_rx - max_r + @as(i32, @intCast(i)) * @as(i32, @intCast(step));
         const end_rx = @min(center_rx - max_r + (@as(i32, @intCast((i))) + 1) * @as(i32, @intCast(step)) - 1, center_rx + max_r);
 
