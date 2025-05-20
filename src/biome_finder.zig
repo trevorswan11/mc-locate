@@ -141,7 +141,7 @@ pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
             std.mem.swap(c_int, &thread_ctx[i].min_z, &thread_ctx[i].max_z);
         }
 
-        t.* = try std.Thread.spawn(.{}, worker, .{&thread_ctx[i], query.count});
+        t.* = try std.Thread.spawn(.{}, worker, .{ &thread_ctx[i], query.count });
     }
 
     for (&threads) |*t| {
