@@ -150,7 +150,7 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
             .center_x = x.?,
             .center_z = z.?,
             .search = search_type.?,
-            .benchmark = if (bench) true else false,
+            .benchmark = bench,
         },
         .STRUCTURE => Args{
             .seed = seed.?,
@@ -159,7 +159,7 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
             .center_x = x.?,
             .center_z = z.?,
             .search = search_type.?,
-            .benchmark = if (bench) true else false,
+            .benchmark = bench,
         },
     };
 }
