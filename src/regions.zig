@@ -147,7 +147,7 @@ pub fn getOverworldBiomes(allocator: std.mem.Allocator) !std.StringHashMap(Biome
     try map.put("stone_shore", .stone_shore);
     try map.put("stone_beach", .stone_shore);
     try map.put("snowy_beach", .snowy_beach);
-    try map.put("coldBeach", .snowy_beach);
+    try map.put("cold_beach", .snowy_beach);
     try map.put("birch_forest", .birch_forest);
     try map.put("birch_forest_hills", .birch_forest_hills);
     try map.put("dark_forest", .dark_forest);
