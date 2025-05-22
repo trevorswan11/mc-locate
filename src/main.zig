@@ -49,7 +49,7 @@ pub fn main() !void {
                 .count = args.count,
             };
 
-            const result = try biome.find(allocator, query);
+            const result = try biome.find(query);
             if (result) |r| {
                 try stdout.print("Found biome at ({d}, {d})", .{ r.x, r.z });
             } else {
@@ -68,7 +68,7 @@ pub fn main() !void {
 
             const result = try structure.find(query);
             if (result) |r| {
-                try stdout.print("Found structure at ({d}, {d})", .{ r.x, r.z });
+                try stdout.print("{s}Found structure at ({d}, {d})", .{ r.message, r.x, r.z });
             } else {
                 try stdout.print("Could not find structure", .{});
             }

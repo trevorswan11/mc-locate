@@ -22,6 +22,7 @@ pub const Query = struct {
 pub const Result = struct {
     x: c_int,
     z: c_int,
+    message: []u8,
 };
 
 // All information needed for a thread to search in its region for a structure
@@ -83,9 +84,16 @@ fn worker(ctx: *ThreadContext, sconf: c.StructureConfig, counting: bool) void {
 }
 
 pub fn find(query: Query) !?Result {
+    var message: []u8 = "";
     // Strongholds generate differently, this is constant per seed regardless of Query
     if (query.structure_id == @intFromEnum(structures.stronghold)) {
         return findNearestStronghold(query.seed, query.x, query.z);
+    } else if (query.structure_id == @intFromEnum(structures.jungle_temple)) {
+        message = @constCast("WARNING: Jungle Temples cannot be found consistently!\n");
+    } else if (query.structure_id == @intFromEnum(structures.mansion)) {
+        message = @constCast("WARNING: Woodland Mansions cannot be found consistently!\n");
+    } else if (query.structure_id == @intFromEnum(structures.desert_pyramid)) {
+        message = @constCast("WARNING: Desert Pyramids cannot be found consistently!\n");
     }
 
     var sconf: c.StructureConfig = undefined;
@@ -146,6 +154,7 @@ pub fn find(query: Query) !?Result {
     return if (best_pos) |pos| Result{
         .x = pos.x,
         .z = pos.z,
+        .message = message
     } else null;
 }
 
@@ -186,6 +195,7 @@ fn findNearestStronghold(
     return if (best_pos) |p| Result{
         .x = p.x,
         .z = p.z,
+        .message = "",
     } else null;
 }
 

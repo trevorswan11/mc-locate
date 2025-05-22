@@ -6,7 +6,6 @@ const c = @cImport({
 
 const globals = @import("globals.zig");
 
-// Check every 8 blocks (half of a chunk)
 pub const STEP = 8;
 
 // Search specific information
@@ -26,129 +25,112 @@ pub const Result = struct {
     z: c_int,
 };
 
-// Internal struct to track help with returning
-const FoundBiome = struct {
-    x: c_int,
-    z: c_int,
-    found: bool,
-};
-
-// Thread safe way to track progress
-const SharedResult = struct {
-    mutex: std.Thread.Mutex = .{},
-    result: FoundBiome = .{
-        .x = 0,
-        .z = 0,
-        .found = false,
-    },
-};
-
-// Helper struct to define search regions
-const PartitionBox = struct {
-    min_x: i32,
-    max_x: i32,
-    min_z: i32,
-    max_z: i32,
-};
-
-// All information needed for a thread to search in its region for a biome
+// All information needed for a thread to search in its region for a structure
 const ThreadContext = struct {
-    seed: u64,
-    dim: c_int,
-    biome_id: c_int,
-    center_x: c_int,
-    center_z: c_int,
-    min_x: c_int,
-    max_x: c_int,
-    min_z: c_int,
-    max_z: c_int,
-    shared: *SharedResult,
+    query: Query,
+    start_x: i32,
+    end_x: i32,
+    center_z: i32,
+    max_radius: i32,
+    shared_mutex: *std.Thread.Mutex,
+    shared_found: *bool,
+    result: *?Result,
     count: u64 = 0,
 };
 
-/// Defines the work to be done per thread to find the specific biome id
+/// Defines the work to be done per thread to find the specific structure id
 fn worker(ctx: *ThreadContext, counting: bool) void {
     var g: c.Generator = undefined;
     var rand: u64 = undefined;
-    c.setSeed(&rand, ctx.seed);
+    c.setSeed(&rand, ctx.query.seed);
     c.setupGenerator(&g, globals.MC_VER, 0);
-    c.applySeed(&g, ctx.dim, ctx.seed);
+    c.applySeed(&g, ctx.query.dim, ctx.query.seed);
 
-    // Search the threads alloted region in the partition
-    var z = ctx.min_z;
-    while (z <= ctx.max_z) : (z += STEP) {
-        var x = ctx.min_x;
-        while (x <= ctx.max_x) : (x += STEP) {
-            // We can stop the threads work if another thread has found something
-            ctx.shared.mutex.lock();
-            const should_stop = ctx.shared.result.found;
-            ctx.shared.mutex.unlock();
-            if (should_stop) return;
+    const min_z = ctx.center_z - ctx.max_radius;
+    const max_z = ctx.center_z + ctx.max_radius;
 
-            // Use cubiomes to poll the biome at the coordinate, use default y value as it does not matter
-            const id = c.getBiomeAt(&g, 1, x, 60, z);
+    // Search the threads alloted region in the radii
+    var x = ctx.start_x;
+    while (x <= ctx.end_x) : (x += STEP) {
+        var z = min_z;
+        while (z <= max_z) : (z += STEP) {
+            // Check shared state before wasting more work
+            ctx.shared_mutex.lock();
+            const should_stop = ctx.shared_found.*;
+            ctx.shared_mutex.unlock();
+            if (should_stop) {
+                return;
+            }
+
             if (counting) {
                 ctx.count += 1;
             }
-            if (id == ctx.biome_id) {
-                // Lock the shared data temporarily to prevent race conditions
-                ctx.shared.mutex.lock();
-                if (!ctx.shared.result.found) {
-                    ctx.shared.result = .{ .x = x, .z = z, .found = true };
+
+            const biome = c.getBiomeAt(&g, 1, x, 60, z);
+            if (biome == ctx.query.biome_id) {
+                ctx.shared_mutex.lock();
+                defer ctx.shared_mutex.unlock();
+                if (!ctx.shared_found.*) {
+                    ctx.shared_found.* = true;
+                    ctx.result.* = Result{ .x = x, .z = z };
                 }
-                ctx.shared.mutex.unlock();
                 return;
             }
         }
     }
 }
 
-/// Attempts to locate a biome in the given square radius about a center coordinate
-pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
-    var shared = SharedResult{};
-    var threads: [globals.NUM_THREADS]std.Thread = undefined;
-    var thread_ctx: [globals.NUM_THREADS]ThreadContext = undefined;
-
-    const boxes = try generatePartitions(
-        allocator,
-        globals.NUM_THREADS,
-        query.x,
-        query.z,
-        query.radius,
-    );
-    defer allocator.free(boxes);
-
-    for (&threads, 0..) |*t, i| {
-        const box = boxes[i];
-        thread_ctx[i] = ThreadContext{
-            .seed = query.seed,
-            .dim = query.dim,
-            .biome_id = query.biome_id,
-            .center_x = query.x,
-            .center_z = query.z,
-            .min_x = box.min_x,
-            .max_x = box.max_x,
-            .min_z = box.min_z,
-            .max_z = box.max_z,
-            .shared = &shared,
+pub fn find(query: Query) !?Result {
+    // Check the center first
+    var g: c.Generator = undefined;
+    c.setupGenerator(&g, globals.MC_VER, 0);
+    c.applySeed(&g, query.dim, query.seed);
+    const biome_at_center = c.getBiomeAt(&g, 1, query.x, 60, query.z);
+    if (biome_at_center == query.biome_id) {
+        return Result{
+            .x = query.x,
+            .z = query.z,
         };
-
-        // Prevents negative coordinate errors if the inputs were flipped
-        if (thread_ctx[i].min_x > thread_ctx[i].max_x) {
-            std.mem.swap(c_int, &thread_ctx[i].min_x, &thread_ctx[i].max_x);
-        }
-        if (thread_ctx[i].min_z > thread_ctx[i].max_z) {
-            std.mem.swap(c_int, &thread_ctx[i].min_z, &thread_ctx[i].max_z);
-        }
-
-        t.* = try std.Thread.spawn(.{}, worker, .{ &thread_ctx[i], query.count });
     }
 
-    for (&threads) |*t| {
+    const total_width = query.radius * 2 + 1;
+    const step = @divFloor(total_width + globals.NUM_THREADS - 1, globals.NUM_THREADS);
+
+    var mutex = std.Thread.Mutex{};
+    var found = false;
+    var result: ?Result = null;
+
+    var threads: [globals.NUM_THREADS]std.Thread = undefined;
+    var thread_ctx: [globals.NUM_THREADS]*ThreadContext = undefined;
+
+    var i: usize = 0;
+    while (i < globals.NUM_THREADS) : (i += 1) {
+        const start_x = query.x - query.radius + @as(i32, @intCast(i)) * @as(i32, @intCast(step));
+        const end_x = @min(
+            query.x - query.radius + @as(i32, @intCast(i + 1)) * @as(i32, @intCast(step)) - 1,
+            query.x + query.radius,
+        );
+
+        const ctx = try std.heap.page_allocator.create(ThreadContext);
+        ctx.* = ThreadContext{
+            .query = query,
+            .start_x = start_x,
+            .end_x = end_x,
+            .center_z = query.z,
+            .max_radius = query.radius,
+            .shared_mutex = &mutex,
+            .shared_found = &found,
+            .result = &result,
+        };
+
+        threads[i] = try std.Thread.spawn(.{}, worker, .{ ctx, query.count });
+        thread_ctx[i] = ctx;
+    }
+
+    for (threads) |t| {
         t.join();
     }
 
-    // Print count info if requested
     if (query.count) {
         var total: u64 = 0;
         inline for (thread_ctx, 1..) |tx, j| {
@@ -158,48 +140,5 @@ pub fn find(allocator: std.mem.Allocator, query: Query) !?Result {
         std.debug.print("Total checks: {d}\n", .{total});
     }
 
-    return if (shared.result.found) Result{
-        .x = shared.result.x,
-        .z = shared.result.z,
-    } else null;
-}
-
-pub fn generatePartitions(
-    allocator: std.mem.Allocator,
-    num_threads: usize,
-    center_x: i32,
-    center_z: i32,
-    radius: i32,
-) ![]PartitionBox {
-    const boxes = try allocator.alloc(PartitionBox, num_threads);
-    var w: usize = std.math.sqrt(num_threads);
-    while (num_threads % w != 0) : (w -= 1) {}
-    const h = num_threads / w;
-
-    // generate tile dimensions for the threads
-    const tile_width: i32 = @divFloor((radius * 2 + (@as(i32, @intCast(w))) - 1), @as(i32, @intCast(w)));
-    const tile_height: i32 = @divFloor((radius * 2 + (@as(i32, @intCast(h))) - 1), @as(i32, @intCast(h)));
-
-    var i: usize = 0;
-    var row: usize = 0;
-    while (row < h) : (row += 1) {
-        var col: usize = 0;
-        while (col < w) : (col += 1) {
-            // Compute the coordinates of the box for the thread
-            const left = center_x - radius + tile_width * @as(i32, @intCast(col));
-            const right = @min(left + tile_width - 1, center_x + radius);
-            const top = center_z - radius + tile_height * @as(i32, @intCast(row));
-            const bottom = @min(top + tile_height - 1, center_z + radius);
-
-            boxes[i] = .{
-                .min_x = left,
-                .max_x = right,
-                .min_z = top,
-                .max_z = bottom,
-            };
-            i += 1;
-        }
-    }
-
-    return boxes;
+    return result;
 }
