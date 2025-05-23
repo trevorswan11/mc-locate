@@ -13,7 +13,7 @@ pub const SearchType = enum(u8) {
 pub const Args = struct {
     seed: u64,
     dim: c_int,
-    biome: c_int = -1,
+    biome: c_int = -1, // While you could consolidate into one id field, this is more explicit for parsing
     structure: c_int = -1,
     center_x: c_int,
     center_z: c_int,
@@ -141,6 +141,7 @@ pub fn parseArgs(allocator: std.mem.Allocator) !Args {
         return error.SearchTypeParse;
     }
 
+    // There is builtin benchmarking and thread counting if requested in the last argument
     if (std.mem.eql(u8, args[args.len - 1], "bench")) {
         bench = true;
     } else if (std.mem.eql(u8, args[args.len - 1], "count")) {

@@ -117,7 +117,7 @@ pub fn getOverworldBiomes(allocator: std.mem.Allocator) !std.StringHashMap(Biome
     try map.put("plains", .plains);
     try map.put("desert", .desert);
     try map.put("mountains", .mountains);
-    try map.put("extremeHills", .mountains);
+    try map.put("extreme_hills", .mountains);
     try map.put("forest", .forest);
     try map.put("taiga", .taiga);
     try map.put("swamp", .swamp);
@@ -255,6 +255,7 @@ pub fn getEndBiomes(allocator: std.mem.Allocator) !std.StringHashMap(BiomeID) {
     return map;
 }
 
+/// The message outputted when calling with 'help-biome'
 pub fn biomeHelpMessage() ![]const u8 {
     const allocator = std.heap.page_allocator;
 
@@ -380,6 +381,7 @@ pub fn getEndStructures(allocator: std.mem.Allocator) !std.StringHashMap(Structu
     return map;
 }
 
+/// The message outputted when calling with 'help-structure'
 pub fn structureHelpMessage() ![]const u8 {
     const allocator = std.heap.page_allocator;
 

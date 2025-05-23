@@ -6,6 +6,7 @@ const structure = @import("structure_finder.zig");
 const regions = @import("regions.zig");
 
 pub fn main() !void {
+    // Parse the input and decide whether it is safe to proceed
     const allocator = std.heap.page_allocator;
     const stdout = std.io.getStdOut().writer();
     const args = parser.parseArgs(allocator) catch |err| switch (err) {
@@ -37,13 +38,14 @@ pub fn main() !void {
         },
     };
 
+    // Perform the search and print the output
     const t0 = std.time.nanoTimestamp();
     switch (args.search) {
         .BIOME => {
             const query = biome.Query{
                 .seed = args.seed,
                 .dim = args.dim,
-                .biome_id = args.biome,
+                .id = args.biome,
                 .x = args.center_x,
                 .z = args.center_z,
                 .count = args.count,
@@ -60,7 +62,7 @@ pub fn main() !void {
             const query = structure.Query{
                 .seed = args.seed,
                 .dim = args.dim,
-                .structure_id = args.structure,
+                .id = args.structure,
                 .x = args.center_x,
                 .z = args.center_z,
                 .count = args.count,
