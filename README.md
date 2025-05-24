@@ -8,6 +8,7 @@ A cli-based seed parsing tool for Java Minecraft. This repository serves as a wr
 4. After building, test functionality with `zig build run -- biome 262 o mushroom_island 0 0`. This should return "Found biome at (0, 0)"
 5. Use `zig build run -- help` to see the help menu
 6. To use this generally, you can either call the binary directly with `./mclocate <biome|structure> <seed> <dim> <id> <x> <z>`, or you can use zig directly and pass in the args following a '--' as `zig build run -- <biome|structure> <seed> <dim> <id> <x> <z>`
+7. If you would like to make sure the code is working as intended, you can run `zig build test` to run some short tests!
 
 ### Thread Safety
 This project uses a multithreaded approach to efficiently query the given seed for the inputted biome. You are free to change the number of threads used by altering the `NUM_THREADS` global in the `globals.zig` source file, but I have found the most consistency with 4 threads due to how the program divides work. Cubiomes is not inherently thread safe, so there may be some unanticipated behavior that will be investigated in the future. Similar steps are taken for finding structures.

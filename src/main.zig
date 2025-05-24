@@ -81,3 +81,63 @@ pub fn main() !void {
         try stdout.print("\nSearch took {d} ms\n", .{@as(f128, @floatFromInt(t1 - t0)) / 1_000_000.0});
     }
 }
+
+const testing = std.testing;
+test "basic functionality - 4 threads" {
+    // Biome - From cubiomes, should return (0, 0)
+    const biome_query = biome.Query{
+        .seed = 262,
+        .dim = 0,
+        .id = @intFromEnum(regions.BiomeID.mushroom_fields),
+        .x = 0,
+        .z = 0,
+        .count = false,
+    };
+    try if (biome.find(biome_query) catch null) |result| {
+        try testing.expectEqual(biome_query.x, result.x);
+        try testing.expectEqual(biome_query.z, result.z);
+    } else testing.expect(false);
+
+    // Structure - Should return (-288, 176)
+    const structure_query = structure.Query{
+        .seed = 262,
+        .dim = 0,
+        .id = @intFromEnum(regions.StructureID.monument),
+        .x = 0,
+        .z = 0,
+        .count = false,
+    };
+    try if (structure.find(structure_query) catch null) |result| {
+        try testing.expectEqual(-288, result.x);
+        try testing.expectEqual(176, result.z);
+    } else testing.expect(false);
+
+    // Buggy Structure - Should return a message with (-352, -2224)
+    const buggy_structure = structure.Query{
+        .seed = 262,
+        .dim = 0,
+        .id = @intFromEnum(regions.StructureID.jungle_temple),
+        .x = 0,
+        .z = 0,
+        .count = false,
+    };
+    try if (structure.find(buggy_structure) catch null) |result| {
+        try testing.expectEqual(-352, result.x);
+        try testing.expectEqual(-2224, result.z);
+        try testing.expectEqualSlices(u8, "WARNING: Jungle Temples cannot be found consistently!\n", result.message);
+    } else testing.expect(false);
+
+    // Stronghold - Should return (0, 0)
+    const stronghold_query = structure.Query{
+        .seed = 262,
+        .dim = 0,
+        .id = @intFromEnum(regions.StructureID.stronghold),
+        .x = 0,
+        .z = 0,
+        .count = false,
+    };
+    try if (structure.find(stronghold_query) catch null) |result| {
+        try testing.expectEqual(stronghold_query.x, result.x);
+        try testing.expectEqual(stronghold_query.z, result.z);
+    } else testing.expect(false);
+}

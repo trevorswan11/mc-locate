@@ -85,6 +85,18 @@ fn worker(ctx: *ThreadContext, counting: bool) void {
 
 /// Procedurally dispatches threads to find the closest structure to the query
 pub fn find(query: Query) !?Result {
+    // Perform a quick check at the input coordinates
+    var g: c.Generator = undefined;
+    c.setupGenerator(&g, MC_VER, 0);
+    c.applySeed(&g, query.dim, query.seed);
+    if (query.id == c.getBiomeAt(&g, 1, query.x, 60, query.z)) {
+        return Result{
+            .x = query.x,
+            .z = query.z,
+        };
+    }
+
+    // Declare local constants for thread work
     const center_x = query.x;
     const center_z = query.z;
     const max_r = query.radius;
