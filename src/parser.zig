@@ -13,7 +13,7 @@ pub const SearchType = enum(u8) {
 pub const Args = struct {
     seed: u64,
     dim: c_int,
-    biome: c_int = -1, // While you could consolidate into one id field, this is more explicit for parsing
+    biome: c_int = -1,
     structure: c_int = -1,
     center_x: c_int,
     center_z: c_int,

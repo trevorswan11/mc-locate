@@ -271,38 +271,38 @@ pub fn biomeHelpMessage() ![]const u8 {
     defer end.deinit();
     var enditr = end.keyIterator();
 
-    var result = std.ArrayList(u8).init(allocator);
-    defer result.deinit();
+    var result: std.ArrayList(u8) = .empty;
+    defer result.deinit(allocator);
 
-    try result.appendSlice("**All Accepted Dimensions for 1.21.x:**\n");
-    try result.appendSlice("- The Nether: use <dim> = 'n'\n");
-    try result.appendSlice("- The Overworld: use <dim> = 'o'\n");
-    try result.appendSlice("- The End: use <dim> = 'e'\n\n");
+    try result.appendSlice(allocator, "**All Accepted Dimensions for 1.21.x:**\n");
+    try result.appendSlice(allocator, "- The Nether: use <dim> = 'n'\n");
+    try result.appendSlice(allocator, "- The Overworld: use <dim> = 'o'\n");
+    try result.appendSlice(allocator, "- The End: use <dim> = 'e'\n\n");
 
-    try result.appendSlice("**All Accepted Biomes for 1.21.x:**\n");
-    try result.appendSlice("__The Overworld__\n");
+    try result.appendSlice(allocator, "**All Accepted Biomes for 1.21.x:**\n");
+    try result.appendSlice(allocator, "__The Overworld__\n");
 
     while (oveitr.next()) |key| {
-        try result.appendSlice("- ");
-        try result.appendSlice(key.*);
-        try result.appendSlice("\n");
+        try result.appendSlice(allocator, "- ");
+        try result.appendSlice(allocator, key.*);
+        try result.appendSlice(allocator, "\n");
     }
 
-    try result.appendSlice("\n__The Nether__\n");
+    try result.appendSlice(allocator, "\n__The Nether__\n");
     while (netitr.next()) |key| {
-        try result.appendSlice("- ");
-        try result.appendSlice(key.*);
-        try result.appendSlice("\n");
+        try result.appendSlice(allocator, "- ");
+        try result.appendSlice(allocator, key.*);
+        try result.appendSlice(allocator, "\n");
     }
 
-    try result.appendSlice("\n__The End__\n");
+    try result.appendSlice(allocator, "\n__The End__\n");
     while (enditr.next()) |key| {
-        try result.appendSlice("- ");
-        try result.appendSlice(key.*);
-        try result.appendSlice("\n");
+        try result.appendSlice(allocator, "- ");
+        try result.appendSlice(allocator, key.*);
+        try result.appendSlice(allocator, "\n");
     }
 
-    return try result.toOwnedSlice();
+    return try result.toOwnedSlice(allocator);
 }
 
 // --- STRUCTURES ---
@@ -397,36 +397,36 @@ pub fn structureHelpMessage() ![]const u8 {
     defer end.deinit();
     var enditr = end.keyIterator();
 
-    var result = std.ArrayList(u8).init(allocator);
-    defer result.deinit();
+    var result: std.ArrayList(u8) = .empty;
+    defer result.deinit(allocator);
 
-    try result.appendSlice("**All Accepted Dimensions for 1.21.x:**\n");
-    try result.appendSlice("- The Nether: use <dim> = 'n'\n");
-    try result.appendSlice("- The Overworld: use <dim> = 'o'\n");
-    try result.appendSlice("- The End: use <dim> = 'e'\n\n");
+    try result.appendSlice(allocator, "**All Accepted Dimensions for 1.21.x:**\n");
+    try result.appendSlice(allocator, "- The Nether: use <dim> = 'n'\n");
+    try result.appendSlice(allocator, "- The Overworld: use <dim> = 'o'\n");
+    try result.appendSlice(allocator, "- The End: use <dim> = 'e'\n\n");
 
-    try result.appendSlice("**All Accepted Structures for 1.21.x:**\n");
-    try result.appendSlice("__The Overworld__\n");
+    try result.appendSlice(allocator, "**All Accepted Structures for 1.21.x:**\n");
+    try result.appendSlice(allocator, "__The Overworld__\n");
 
     while (oveitr.next()) |key| {
-        try result.appendSlice("- ");
-        try result.appendSlice(key.*);
-        try result.appendSlice("\n");
+        try result.appendSlice(allocator, "- ");
+        try result.appendSlice(allocator, key.*);
+        try result.appendSlice(allocator, "\n");
     }
 
-    try result.appendSlice("\n__The Nether__\n");
+    try result.appendSlice(allocator, "\n__The Nether__\n");
     while (netitr.next()) |key| {
-        try result.appendSlice("- ");
-        try result.appendSlice(key.*);
-        try result.appendSlice("\n");
+        try result.appendSlice(allocator, "- ");
+        try result.appendSlice(allocator, key.*);
+        try result.appendSlice(allocator, "\n");
     }
 
-    try result.appendSlice("\n__The End__\n");
+    try result.appendSlice(allocator, "\n__The End__\n");
     while (enditr.next()) |key| {
-        try result.appendSlice("- ");
-        try result.appendSlice(key.*);
-        try result.appendSlice("\n");
+        try result.appendSlice(allocator, "- ");
+        try result.appendSlice(allocator, key.*);
+        try result.appendSlice(allocator, "\n");
     }
 
-    return try result.toOwnedSlice();
+    return try result.toOwnedSlice(allocator);
 }

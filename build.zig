@@ -75,7 +75,7 @@ fn getCSourceFiles(allocator: std.mem.Allocator, directory: []const u8) !std.Arr
     var walker = try dir.walk(allocator);
     defer walker.deinit();
 
-    var paths = std.ArrayList([]const u8).init(allocator);
+    var paths: std.ArrayList([]const u8) = .empty;
 
     while (try walker.next()) |entry| {
         if (entry.kind != .file) continue;
@@ -83,7 +83,7 @@ fn getCSourceFiles(allocator: std.mem.Allocator, directory: []const u8) !std.Arr
         if (std.mem.eql(u8, entry.basename, "tests.c")) continue;
 
         const full_path = try std.fs.path.join(allocator, &.{ directory, entry.path });
-        try paths.append(full_path);
+        try paths.append(allocator, full_path);
     }
 
     return paths;

@@ -141,14 +141,13 @@ pub fn find(query: Query) !?Result {
     }
 
     // Print count info if requested
-    const stdout = std.io.getStdOut().writer();
     if (query.count) {
         var total: u64 = 0;
         inline for (thread_ctx, 1..) |tx, j| {
             total += tx.count;
-            try stdout.print("Thread {d}: {d} checks\n", .{ j, tx.count });
+            try query.writer.?.print("Thread {d}: {d} checks\n", .{ j, tx.count });
         }
-        try stdout.print("Total checks: {d}\n", .{total});
+        try query.writer.?.print("Total checks: {d}\n", .{total});
     }
 
     return best_result;

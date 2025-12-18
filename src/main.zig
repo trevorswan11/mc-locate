@@ -7,8 +7,13 @@ const regions = @import("regions.zig");
 
 pub fn main() !void {
     // Parse the input and decide whether it is safe to proceed
-    const allocator = std.heap.page_allocator;
-    const stdout = std.io.getStdOut().writer();
+    const allocator = std.heap.c_allocator;
+
+    var buf: [1024]u8 = undefined;
+    var writer = std.fs.File.stdout().writer(&buf);
+    const stdout = &writer.interface;
+    defer stdout.flush() catch unreachable;
+
     const args = parser.parseArgs(allocator) catch |err| switch (err) {
         error.BiomeHelpNeeded => {
             const help = try regions.biomeHelpMessage();
@@ -49,6 +54,7 @@ pub fn main() !void {
                 .x = args.center_x,
                 .z = args.center_z,
                 .count = args.count,
+                .writer = stdout,
             };
 
             const result = try biome.find(query);
@@ -66,6 +72,7 @@ pub fn main() !void {
                 .x = args.center_x,
                 .z = args.center_z,
                 .count = args.count,
+                .writer = stdout,
             };
 
             const result = try structure.find(query);
@@ -79,7 +86,7 @@ pub fn main() !void {
     const t1 = std.time.nanoTimestamp();
     if (args.benchmark) {
         try stdout.print("\nSearch took {d} ms\n", .{@as(f128, @floatFromInt(t1 - t0)) / 1_000_000.0});
-    }
+    }    
 }
 
 const testing = std.testing;

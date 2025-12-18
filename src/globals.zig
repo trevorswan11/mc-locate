@@ -1,3 +1,4 @@
+const std = @import("std");
 const c = @cImport({
     @cInclude("generator.h");
     @cInclude("finders.h");
@@ -24,6 +25,7 @@ pub const Query = struct {
     z: c_int,
     radius: c_int = SEARCH_RADIUS,
     count: bool,
+    writer: ?*std.Io.Writer = null,
 };
 
 /// Packed coordinate result information
@@ -33,8 +35,13 @@ pub const Result = struct {
     message: []u8 = "",
 };
 
+pub const Pos = struct {
+    x: c_int = 0,
+    z: c_int = 0,
+};
+
 /// Returns the magnitude squared of the displacement vector between the positions
-pub fn distanceSquared(pos1: c.Pos, pos2: c.Pos) u64 {
+pub fn distanceSquared(pos1: Pos, pos2: Pos) u64 {
     const dx = @as(i64, pos1.x) - @as(i64, pos2.x);
     const dz = @as(i64, pos1.z) - @as(i64, pos2.z);
     return @as(u64, @intCast(dx * dx + dz * dz));

@@ -53,7 +53,7 @@ fn worker(ctx: *ThreadContext, sconf: c.StructureConfig, counting: bool) void {
 
             // Check region takes in region coordinates, but returns block coordinates for packing
             if (checkRegion(rx, rz, ctx.query, &g, sconf) catch null) |pos| {
-                const dist_sq = distanceSquared(pos, .{
+                const dist_sq = distanceSquared(.{.x = pos.x, .z = pos.z}, .{
                     .x = ctx.query.x,
                     .z = ctx.query.z,
                 });
@@ -143,14 +143,13 @@ pub fn find(query: Query) !?Result {
     }
 
     // Print count info if requested
-    const stdout = std.io.getStdOut().writer();
     if (query.count) {
         var total: u64 = 0;
         inline for (thread_ctx, 1..) |tx, j| {
             total += tx.count;
-            try stdout.print("Thread {d}: {d} checks\n", .{ j, tx.count });
+            try query.writer.?.print("Thread {d}: {d} checks\n", .{ j, tx.count });
         }
-        try stdout.print("Total checks: {d}\n", .{total});
+        try query.writer.?.print("Total checks: {d}\n", .{total});
     }
 
     // Repack the result as pos does not play nice with result
@@ -183,7 +182,7 @@ fn findNearestStronghold(
     while (i < 128) : (i += 1) {
         // Compare the current iterator distance to the next stronghold
         const pos = sh_iter.pos;
-        const dist_sq: u64 = distanceSquared(pos, .{
+        const dist_sq: u64 = distanceSquared(.{.x = pos.x, .z = pos.z}, .{
             .x = x,
             .z = z,
         });
