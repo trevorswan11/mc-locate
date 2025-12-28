@@ -38,7 +38,7 @@ pub fn main() !void {
             return;
         },
         else => {
-            try stdout.print("Usage: mclocate <biome/structure> <seed> <dim> <biome> <x> <z>\n", .{});
+            try stdout.print("Usage: mclocate <biome/structure> <seed> <dim> <id> <x> <z>\n", .{});
             return;
         },
     };
