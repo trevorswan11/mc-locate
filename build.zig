@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{
         .preferred_optimize_mode = .ReleaseFast,
@@ -27,10 +27,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_exe_unit_tests.step);
 
     // Interop with c
-    const c_files = getCSourceFiles(std.heap.page_allocator, "cubiomes") catch {
-        std.debug.print("Fuck you.\n", .{});
-        return;
-    };
+    const c_files = try getCSourceFiles(b.allocator, "cubiomes");
     exe.addCSourceFiles(.{
         .files = c_files.items,
         .flags = &.{ "-std=c99", "-O3" },
